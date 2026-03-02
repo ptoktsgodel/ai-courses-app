@@ -1,13 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Box from '@mui/material/Box'
 import CircularProgress from '@mui/material/CircularProgress'
-import FormControlLabel from '@mui/material/FormControlLabel'
-import Stack from '@mui/material/Stack'
-import Switch from '@mui/material/Switch'
 import Typography from '@mui/material/Typography'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
-import { DatePicker } from '@mui/x-date-pickers/DatePicker'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
+import GraphDateSelector from './graph-date-selector'
 import dayjs, { type Dayjs } from 'dayjs'
 import {
   Bar,
@@ -147,43 +144,15 @@ export default function SpendingChart() {
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
       <Box>
-        {/* Controls */}
-        <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap" mb={3}>
-          <DatePicker
-            label="From Month"
-            value={fromMonth}
-            onChange={handleFromChange}
-            views={['year', 'month']}
-            openTo="month"
-            maxDate={toMonth}
-            slotProps={{ textField: { size: 'small' } }}
-          />
-          <DatePicker
-            label="To Month"
-            value={toMonth}
-            onChange={handleToChange}
-            views={['year', 'month']}
-            openTo="month"
-            minDate={fromMonth}
-            slotProps={{ textField: { size: 'small' } }}
-          />
-          {isMultiMonth && (
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={groupByMonth}
-                  onChange={(e) => setGroupByMonth(e.target.checked)}
-                  color="primary"
-                />
-              }
-              label={
-                <Typography variant="body2" color="text.secondary">
-                  Group by month
-                </Typography>
-              }
-            />
-          )}
-        </Stack>
+        <GraphDateSelector
+          fromMonth={fromMonth}
+          toMonth={toMonth}
+          isMultiMonth={isMultiMonth}
+          groupByMonth={groupByMonth}
+          onFromChange={handleFromChange}
+          onToChange={handleToChange}
+          onGroupByMonthChange={setGroupByMonth}
+        />
 
         {/* Chart */}
         {loading ? (
