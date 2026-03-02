@@ -50,7 +50,7 @@ export default function DashboardComponent() {
         </IconButton>
       </Box>
 
-      <CalendarGrid date={date} loading={loading} />
+      <CalendarGrid date={date} loading={loading} onRefresh={() => fetchMonth(date)} />
     </LocalizationProvider>
   )
 }

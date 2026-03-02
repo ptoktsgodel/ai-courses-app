@@ -47,6 +47,13 @@ export async function getItems(dateFrom: Date, dateTo: Date): Promise<Item[]> {
   return handleResponse<Item[]>(res)
 }
 
+export async function getTypes(): Promise<string[]> {
+  const res = await fetch(`${BASE_URL}/types`, {
+    headers: { ...authHeader() },
+  })
+  return handleResponse<string[]>(res)
+}
+
 export interface AddItemPaymentPayload {
   date: string
   typeName: string
@@ -69,4 +76,19 @@ export async function deletePayment(itemId: string, paymentId: string): Promise<
     headers: { ...authHeader() },
   })
   return handleNoContent(res)
+}
+
+export interface UpdatePaymentPayload {
+  typeName: string
+  plannedAmount: number | null
+  spentAmount: number | null
+}
+
+export async function updatePayment(itemId: string, paymentId: string, payload: UpdatePaymentPayload): Promise<Item> {
+  const res = await fetch(`${BASE_URL}/${itemId}/payments/${paymentId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...authHeader() },
+    body: JSON.stringify(payload),
+  })
+  return handleResponse<Item>(res)
 }

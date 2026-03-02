@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Box from '@mui/material/Box'
 import CircularProgress from '@mui/material/CircularProgress'
 import Dialog from '@mui/material/Dialog'
@@ -11,61 +11,87 @@ import Button from '@mui/material/Button'
 import CloseIcon from '@mui/icons-material/Close'
 import dayjs from 'dayjs'
 import useCalendarStore from '../../stores/items-payments-store'
-import { addItemPayment, deletePayment } from '../../services/items-service'
+import { addItemPayment, deletePayment, updatePayment, getTypes } from '../../services/items-service'
+import PaymentFormDialog from './dashboard-payment-form'
 import type { Payment } from '../../types/items'
 
 interface DayPopupProps {
   open: boolean
   dateKey: string
   onClose: () => void
+  onRefresh?: () => void
 }
 
-export default function DayPopup({ open, dateKey, onClose }: DayPopupProps) {
+export default function DayPopup({ open, dateKey, onClose, onRefresh }: DayPopupProps) {
   const dayItem = useCalendarStore((s) => s.items[dateKey])
   const setItem = useCalendarStore((s) => s.setItem)
+  const storeUpdatePayment = useCalendarStore((s) => s.updatePayment)
   const removePayments = useCalendarStore((s) => s.removePayments)
 
   const payments = dayItem?.payments ?? []
-  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [addOpen, setAddOpen] = useState(false)
+  const [updateOpen, setUpdateOpen] = useState(false)
+  const [allTypeNames, setAllTypeNames] = useState<string[]>([])
+  const dirty = useRef(false)
 
-  const validSelectedIds = selectedIds.filter((id) => payments.some((p) => p.id === id))
-  const showClearAll = validSelectedIds.length > 1
-
-  const toggleItem = (id: string) =>
-    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]))
-
-  const handleSelectAll = () =>
-    showClearAll ? setSelectedIds([]) : setSelectedIds(payments.map((p) => p.id))
-
-  const handleAdd = async () => {
-    setSaving(true)
-    try {
-      const result = await addItemPayment({
-        date: dateKey,
-        typeName: `Course ${payments.length + 1}`,
-        plannedAmount: Math.floor(Math.random() * 96) + 5,
-        spentAmount: null,
-      })
-      setItem(dateKey, result)
-    } finally {
-      setSaving(false)
+  useEffect(() => {
+    if (open) {
+      dirty.current = false
+      getTypes()
+        .then(setAllTypeNames)
+        .catch(() => {})
     }
+  }, [open])
+
+  const handleClose = () => {
+    if (dirty.current) {
+      onRefresh?.()
+      dirty.current = false
+    }
+    onClose()
   }
+
+  const validSelectedId = selectedId && payments.some((p) => p.id === selectedId) ? selectedId : null
+
+  const toggleItem = (id: string) => setSelectedId((prev) => (prev === id ? null : id))
 
   const handleRemove = async () => {
-    if (!dayItem || validSelectedIds.length === 0) return
+    if (!dayItem || !validSelectedId) return
     setSaving(true)
     try {
-      await Promise.all(validSelectedIds.map((paymentId) => deletePayment(dayItem.id, paymentId)))
-      removePayments(dateKey, validSelectedIds)
-      setSelectedIds([])
+      await deletePayment(dayItem.id, validSelectedId)
+      removePayments(dateKey, [validSelectedId])
+      setSelectedId(null)
+      dirty.current = true
     } finally {
       setSaving(false)
     }
   }
 
-  const runningTotal = payments.reduce((sum, p) => sum + (p.spentAmount ?? p.plannedAmount ?? 0), 0)
+  const handleAddSave = async (typeName: string, plannedAmount: number | null, spentAmount: number | null) => {
+    const result = await addItemPayment({ date: dateKey, typeName, plannedAmount, spentAmount })
+    setItem(dateKey, result)
+    setAddOpen(false)
+    getTypes().then(setAllTypeNames).catch(() => {})
+    dirty.current = true
+  }
+
+  const handleUpdateSave = async (typeName: string, plannedAmount: number | null, spentAmount: number | null) => {
+    if (!dayItem || !validSelectedId) return
+    const result = await updatePayment(dayItem.id, validSelectedId, { typeName, plannedAmount, spentAmount })
+    storeUpdatePayment(dateKey, result)
+    setSelectedId(null)
+    setUpdateOpen(false)
+    getTypes().then(setAllTypeNames).catch(() => {})
+    dirty.current = true
+  }
+
+  const selectedPayment = validSelectedId ? payments.find((p) => p.id === validSelectedId) : undefined
+
+  const plannedTotal = payments.reduce((sum, p) => sum + (p.plannedAmount ?? 0), 0)
+  const spentTotal = payments.reduce((sum, p) => sum + (p.spentAmount ?? 0), 0)
 
   const columns: Payment[][] = []
   for (let i = 0; i < payments.length; i += 7) {
@@ -79,105 +105,131 @@ export default function DayPopup({ open, dateKey, onClose }: DayPopupProps) {
   const title = dateKey ? dayjs(dateKey).format('MMMM D, YYYY') : ''
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth={dialogMaxWidth} fullWidth>
-      <DialogTitle sx={{ pr: 6 }}>
-        <Typography variant="h6" fontWeight={600}>
-          {title}
-        </Typography>
-        <IconButton
-          onClick={onClose}
-          size="small"
-          sx={{ position: 'absolute', top: 8, right: 8 }}
-        >
-          <CloseIcon fontSize="small" />
-        </IconButton>
-      </DialogTitle>
-
-      <DialogContent dividers>
-        {payments.length === 0 ? (
-          <Typography color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
-            No items for this day. Click Add to create one.
+    <>
+      <Dialog open={open} onClose={handleClose} maxWidth={dialogMaxWidth} fullWidth>
+        <DialogTitle sx={{ pr: 6 }}>
+          <Typography variant="h6" fontWeight={600}>
+            {title}
           </Typography>
-        ) : (
-          <Box sx={{ display: 'flex', flexDirection: 'row', gap: 2, alignItems: 'flex-start' }}>
-            {columns.map((col, colIdx) => (
-              <Box
-                key={colIdx}
-                sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, minWidth: 190, flex: 1 }}
-              >
-                {col.map((payment) => {
-                  const isSelected = validSelectedIds.includes(payment.id)
-                  return (
-                    <Box
-                      key={payment.id}
-                      onClick={() => toggleItem(payment.id)}
-                      sx={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        px: 1.5,
-                        py: 0.75,
-                        borderRadius: 1,
-                        cursor: 'pointer',
-                        bgcolor: isSelected ? 'primary.light' : 'action.hover',
-                        color: isSelected ? 'primary.contrastText' : 'text.primary',
-                        '&:hover': { opacity: 0.85 },
-                        transition: 'background-color 0.15s',
-                      }}
-                    >
-                      <Typography sx={{ fontSize, fontWeight: isSelected ? 600 : 400 }}>
-                        {payment.typeName}
-                      </Typography>
-                      <Typography
+          <IconButton onClick={handleClose} size="small" sx={{ position: 'absolute', top: 8, right: 8 }}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent dividers>
+          {payments.length === 0 ? (
+            <Typography color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
+              No items for this day. Click Add to create one.
+            </Typography>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'row', gap: 2, alignItems: 'flex-start' }}>
+              {columns.map((col, colIdx) => (
+                <Box
+                  key={colIdx}
+                  sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, minWidth: 220, flex: 1 }}
+                >
+                  {col.map((payment) => {
+                    const isSelected = validSelectedId === payment.id
+                    const planned = payment.plannedAmount != null ? `$${payment.plannedAmount.toFixed(2)}` : '$0.00'
+                    const spent = payment.spentAmount != null ? `$${payment.spentAmount.toFixed(2)}` : '$0.00'
+                    return (
+                      <Box
+                        key={payment.id}
+                        onClick={() => toggleItem(payment.id)}
                         sx={{
-                          fontSize,
-                          ml: 2,
-                          flexShrink: 0,
-                          fontVariantNumeric: 'tabular-nums',
-                          color: isSelected ? 'inherit' : 'text.secondary',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          px: 1.5,
+                          py: 0.75,
+                          borderRadius: 1,
+                          cursor: 'pointer',
+                          bgcolor: isSelected ? 'primary.light' : 'action.hover',
+                          color: isSelected ? 'primary.contrastText' : 'text.primary',
+                          '&:hover': { opacity: 0.85 },
+                          transition: 'background-color 0.15s',
                         }}
                       >
-                        ${(payment.spentAmount ?? payment.plannedAmount ?? 0).toFixed(2)}
-                      </Typography>
-                    </Box>
-                  )
-                })}
-              </Box>
-            ))}
-          </Box>
-        )}
-      </DialogContent>
+                        <Typography sx={{ fontSize, fontWeight: isSelected ? 600 : 400 }}>
+                          {payment.typeName}
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 1, ml: 2, flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
+                          <Typography sx={{ fontSize, color: isSelected ? 'inherit' : 'success.main', fontWeight: 500 }}>
+                            {planned}
+                          </Typography>
+                          <Typography sx={{ fontSize, color: isSelected ? 'inherit' : 'text.disabled' }}>/</Typography>
+                          <Typography sx={{ fontSize, color: isSelected ? 'inherit' : 'error.main', fontWeight: 500 }}>
+                            {spent}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    )
+                  })}
+                </Box>
+              ))}
+            </Box>
+          )}
+        </DialogContent>
 
-      <DialogActions sx={{ px: 3, py: 1.5, justifyContent: 'space-between' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Typography variant="body2" fontWeight={600}>
-            Total: ${runningTotal.toFixed(2)}
-          </Typography>
-          <Button
-            size="small"
-            variant="text"
-            onClick={handleSelectAll}
-            disabled={payments.length === 0}
-          >
-            {showClearAll ? 'Clear All' : 'Select All'}
-          </Button>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-          {saving && <CircularProgress size={16} />}
-          <Button size="small" variant="contained" onClick={handleAdd} disabled={saving}>
-            Add
-          </Button>
-          <Button
-            size="small"
-            variant="outlined"
-            color="error"
-            onClick={handleRemove}
-            disabled={validSelectedIds.length === 0 || saving}
-          >
-            Remove
-          </Button>
-        </Box>
-      </DialogActions>
-    </Dialog>
+        <DialogActions sx={{ px: 3, py: 1.5, justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Typography variant="body2" fontWeight={600} sx={{ color: 'success.main' }}>
+              Planned: ${plannedTotal.toFixed(2)}
+            </Typography>
+            <Typography variant="body2" fontWeight={600} sx={{ color: 'error.main' }}>
+              Spent: ${spentTotal.toFixed(2)}
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            {saving && <CircularProgress size={16} />}
+            <Button size="small" variant="contained" onClick={() => setAddOpen(true)} disabled={saving}>
+              Add
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => setUpdateOpen(true)}
+              disabled={!validSelectedId || saving}
+            >
+              Update
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
+              color="error"
+              onClick={handleRemove}
+              disabled={!validSelectedId || saving}
+            >
+              Remove
+            </Button>
+          </Box>
+        </DialogActions>
+      </Dialog>
+
+      <PaymentFormDialog
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        onSave={handleAddSave}
+        existingTypeNames={allTypeNames}
+        title="Add Payment"
+      />
+
+      <PaymentFormDialog
+        open={updateOpen}
+        onClose={() => setUpdateOpen(false)}
+        onSave={handleUpdateSave}
+        existingTypeNames={allTypeNames}
+        title="Update Payment"
+        initialValues={
+          selectedPayment
+            ? {
+                typeName: selectedPayment.typeName,
+                plannedAmount: selectedPayment.plannedAmount,
+                spentAmount: selectedPayment.spentAmount,
+              }
+            : undefined
+        }
+      />
+    </>
   )
 }

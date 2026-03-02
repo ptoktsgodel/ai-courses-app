@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Box from '@mui/material/Box'
 import Chip from '@mui/material/Chip'
 import CircularProgress from '@mui/material/CircularProgress'
-import Divider from '@mui/material/Divider'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
@@ -70,10 +69,10 @@ export default function GraphAnalysisChart() {
   const [fromMonth, setFromMonth] = useState<Dayjs>(today.startOf('month'))
   const [toMonth, setToMonth] = useState<Dayjs>(today.startOf('month'))
   const [groupByMonth, setGroupByMonth] = useState(false)
-  const [selectedTypes, setSelectedTypes] = useState<Set<string>>(new Set())
   const [items, setItems] = useState<Item[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [selectedTypes, setSelectedTypes] = useState<Set<string>>(new Set())
 
   const isMultiMonth = !fromMonth.isSame(toMonth, 'month')
 
@@ -93,6 +92,22 @@ export default function GraphAnalysisChart() {
   useEffect(() => {
     fetchData(fromMonth, toMonth)
   }, [fromMonth, toMonth, fetchData])
+
+  function handleFromChange(value: Dayjs | null) {
+    if (!value) return
+    const newFrom = value.startOf('month')
+    setFromMonth(newFrom)
+    if (newFrom.isAfter(toMonth, 'month')) setToMonth(newFrom)
+    if (!isMultiMonth) setGroupByMonth(false)
+  }
+
+  function handleToChange(value: Dayjs | null) {
+    if (!value) return
+    const newTo = value.startOf('month')
+    setToMonth(newTo)
+    if (newTo.isBefore(fromMonth, 'month')) setFromMonth(newTo)
+    if (!isMultiMonth) setGroupByMonth(false)
+  }
 
   const typeKeys = useMemo<string[]>(() => {
     const rangeStart = fromMonth.startOf('month')
@@ -180,22 +195,6 @@ export default function GraphAnalysisChart() {
       }))
   }, [items, fromMonth, toMonth, groupByMonth, isMultiMonth])
 
-  function handleFromChange(value: Dayjs | null) {
-    if (!value) return
-    const newFrom = value.startOf('month')
-    setFromMonth(newFrom)
-    if (newFrom.isAfter(toMonth, 'month')) setToMonth(newFrom)
-    if (!isMultiMonth) setGroupByMonth(false)
-  }
-
-  function handleToChange(value: Dayjs | null) {
-    if (!value) return
-    const newTo = value.startOf('month')
-    setToMonth(newTo)
-    if (newTo.isBefore(fromMonth, 'month')) setFromMonth(newTo)
-    if (!isMultiMonth) setGroupByMonth(false)
-  }
-
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
       <Box>
@@ -208,11 +207,9 @@ export default function GraphAnalysisChart() {
           onToChange={handleToChange}
           onGroupByMonthChange={setGroupByMonth}
         />
-
         {/* Type toggles */}
         {typeKeys.length > 0 && (
           <>
-            <Divider sx={{ mb: 1.5 }} />
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap mb={2.5}>
               {typeKeys.map((typeName, i) => {
                 const color = CHART_COLORS[i % CHART_COLORS.length]

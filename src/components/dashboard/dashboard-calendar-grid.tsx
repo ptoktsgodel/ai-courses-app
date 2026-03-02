@@ -4,17 +4,17 @@ import CircularProgress from '@mui/material/CircularProgress'
 import Typography from '@mui/material/Typography'
 import dayjs, { Dayjs } from 'dayjs'
 import useCalendarStore from '../../stores/items-payments-store'
-import { getItemTotal } from '../../types/items'
 import DayPopup from './dashboard-day-popup'
 
 interface CalendarGridProps {
   date: Dayjs
   loading?: boolean
+  onRefresh?: () => void
 }
 
 const DAY_HEADERS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-export default function CalendarGrid({ date, loading = false }: CalendarGridProps) {
+export default function CalendarGrid({ date, loading = false, onRefresh }: CalendarGridProps) {
   const items = useCalendarStore((s) => s.items)
   const [openDay, setOpenDay] = useState<string | null>(null)
 
@@ -27,9 +27,13 @@ export default function CalendarGrid({ date, loading = false }: CalendarGridProp
 
   const getDateKey = (day: number) => date.date(day).format('YYYY-MM-DD')
 
-  const getDayTotal = (day: number): number => {
+  const getDayTotals = (day: number): { planned: number; spent: number } => {
     const item = items[getDateKey(day)]
-    return item ? getItemTotal(item) : 0
+    if (!item) return { planned: 0, spent: 0 }
+    return {
+      planned: (item.payments ?? []).reduce((s, p) => s + (p.plannedAmount ?? 0), 0),
+      spent: (item.payments ?? []).reduce((s, p) => s + (p.spentAmount ?? 0), 0),
+    }
   }
 
   const isToday = (day: number): boolean => today.isSame(date.date(day), 'day')
@@ -77,7 +81,8 @@ export default function CalendarGrid({ date, loading = false }: CalendarGridProp
 
         {/* Day blocks */}
         {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
-          const total = getDayTotal(day)
+          const { planned, spent } = getDayTotals(day)
+          const hasData = planned > 0 || spent > 0
           const highlight = isToday(day)
           const dateKey = getDateKey(day)
           return (
@@ -108,19 +113,25 @@ export default function CalendarGrid({ date, loading = false }: CalendarGridProp
               <Box
                 sx={{
                   display: 'flex',
+                  flexDirection: 'column',
                   justifyContent: 'center',
                   alignItems: 'center',
                   flexGrow: 1,
+                  gap: 0.25,
                 }}
               >
-                <Typography
-                  variant="body2"
-                  fontWeight={total > 0 ? 600 : 400}
-                  color={total > 0 ? 'text.primary' : 'text.disabled'}
-                  sx={{ fontSize: 13 }}
-                >
-                  {total > 0 ? `$${total.toFixed(2)}` : '—'}
-                </Typography>
+                {hasData ? (
+                  <>
+                    <Typography variant="caption" fontWeight={600} sx={{ color: 'success.main', fontSize: 11, lineHeight: 1.2 }}>
+                      ${planned.toFixed(2)}
+                    </Typography>
+                    <Typography variant="caption" fontWeight={600} sx={{ color: 'error.main', fontSize: 11, lineHeight: 1.2 }}>
+                      ${spent.toFixed(2)}
+                    </Typography>
+                  </>
+                ) : (
+                  <Typography variant="body2" color="text.disabled">—</Typography>
+                )}
               </Box>
             </Box>
           )
@@ -134,7 +145,7 @@ export default function CalendarGrid({ date, loading = false }: CalendarGridProp
       </Box>
 
       {openDay !== null && (
-        <DayPopup open={true} dateKey={openDay} onClose={() => setOpenDay(null)} />
+        <DayPopup open={true} dateKey={openDay} onClose={() => setOpenDay(null)} onRefresh={onRefresh} />
       )}
     </>
   )

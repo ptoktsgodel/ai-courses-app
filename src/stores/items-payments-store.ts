@@ -10,6 +10,7 @@ interface CalendarActions {
   setItem: (dateKey: string, item: Item) => void
   addPayment: (dateKey: string, payment: Payment) => void
   removePayments: (dateKey: string, ids: string[]) => void
+  updatePayment: (dateKey: string, updatedItem: Item) => void
 }
 
 const initialState: CalendarState = {
@@ -25,7 +26,15 @@ const useCalendarStore = create<CalendarState & CalendarActions>((set) => ({
     }),
 
   setItem: (dateKey, item) =>
-    set((state) => ({ items: { ...state.items, [dateKey]: item } })),
+    set((state) => ({
+      items: {
+        ...state.items,
+        [dateKey]: {
+          ...item,
+          payments: item.payments ?? state.items[dateKey]?.payments ?? [],
+        },
+      },
+    })),
 
   addPayment: (dateKey, payment) =>
     set((state) => {
@@ -51,6 +60,17 @@ const useCalendarStore = create<CalendarState & CalendarActions>((set) => ({
         },
       }
     }),
+
+  updatePayment: (dateKey, updatedItem) =>
+    set((state) => ({
+      items: {
+        ...state.items,
+        [dateKey]: {
+          ...updatedItem,
+          payments: updatedItem.payments ?? state.items[dateKey]?.payments ?? [],
+        },
+      },
+    })),
 }))
 
 export default useCalendarStore

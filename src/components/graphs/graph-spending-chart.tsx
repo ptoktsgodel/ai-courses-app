@@ -4,8 +4,6 @@ import CircularProgress from '@mui/material/CircularProgress'
 import Typography from '@mui/material/Typography'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
-import GraphDateSelector from './graph-date-selector'
-import dayjs, { type Dayjs } from 'dayjs'
 import {
   Bar,
   BarChart,
@@ -19,7 +17,9 @@ import {
 import type { TooltipContentProps } from 'recharts/types/component/Tooltip'
 import type { ValueType, NameType } from 'recharts/types/component/DefaultTooltipContent'
 import type { Item } from '../../types/items'
+import dayjs, { type Dayjs } from 'dayjs'
 import { getItems } from '../../services/items-service'
+import GraphDateSelector from './graph-date-selector'
 
 interface ChartDataPoint {
   label: string
@@ -93,6 +93,22 @@ export default function SpendingChart() {
     fetchData(fromMonth, toMonth)
   }, [fromMonth, toMonth, fetchData])
 
+  function handleFromChange(value: Dayjs | null) {
+    if (!value) return
+    const newFrom = value.startOf('month')
+    setFromMonth(newFrom)
+    if (newFrom.isAfter(toMonth, 'month')) setToMonth(newFrom)
+    if (!isMultiMonth) setGroupByMonth(false)
+  }
+
+  function handleToChange(value: Dayjs | null) {
+    if (!value) return
+    const newTo = value.startOf('month')
+    setToMonth(newTo)
+    if (newTo.isBefore(fromMonth, 'month')) setFromMonth(newTo)
+    if (!isMultiMonth) setGroupByMonth(false)
+  }
+
   const data = useMemo<ChartDataPoint[]>(() => {
     const rangeStart = fromMonth.startOf('month')
     const rangeEnd = toMonth.endOf('month')
@@ -125,22 +141,6 @@ export default function SpendingChart() {
       }))
   }, [items, fromMonth, toMonth, groupByMonth, isMultiMonth])
 
-  function handleFromChange(value: Dayjs | null) {
-    if (!value) return
-    const newFrom = value.startOf('month')
-    setFromMonth(newFrom)
-    if (newFrom.isAfter(toMonth, 'month')) setToMonth(newFrom)
-    if (!isMultiMonth) setGroupByMonth(false)
-  }
-
-  function handleToChange(value: Dayjs | null) {
-    if (!value) return
-    const newTo = value.startOf('month')
-    setToMonth(newTo)
-    if (newTo.isBefore(fromMonth, 'month')) setFromMonth(newTo)
-    if (!isMultiMonth) setGroupByMonth(false)
-  }
-
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
       <Box>
@@ -153,7 +153,6 @@ export default function SpendingChart() {
           onToChange={handleToChange}
           onGroupByMonthChange={setGroupByMonth}
         />
-
         {/* Chart */}
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400 }}>

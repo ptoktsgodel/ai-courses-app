@@ -19,7 +19,7 @@ export default function GraphComponent() {
     <Box>
       {/* Spending vs Planned section */}
       <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1}>
-        <Typography variant="h4" fontWeight={700}>
+        <Typography variant="h5" fontWeight={700}>
           Spending vs Planned
         </Typography>
         <Tooltip title={spendingOpen ? 'Collapse' : 'Expand'}>
@@ -35,7 +35,7 @@ export default function GraphComponent() {
 
       {/* Spending by Type section */}
       <Stack direction="row" alignItems="center" justifyContent="space-between" mt={4} mb={1}>
-        <Typography variant="h4" fontWeight={700}>
+        <Typography variant="h5" fontWeight={700}>
           Spending by Type
         </Typography>
         <Tooltip title={analysisOpen ? 'Collapse' : 'Expand'}>

@@ -12,6 +12,7 @@ import { NAVBAR_HEIGHT } from '../../app'
 export default function TopNavbar() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const logout = useAuthStore((s) => s.logout)
+  const user = useAuthStore((s) => s.user)
   const navigate = useNavigate()
 
   const handleLogout = () => {
@@ -43,9 +44,16 @@ export default function TopNavbar() {
         {/* Right section */}
         <Box sx={{ display: 'flex', gap: 1 }}>
           {isAuthenticated ? (
-            <Button variant="outlined" color="primary" onClick={handleLogout}>
-              Logout
-            </Button>
+            <>
+              {user && (
+                <Typography variant="body2" fontWeight={600} color="text.secondary" sx={{ alignSelf: 'center', mr: 1 }}>
+                  {user.firstName} {user.lastName}
+                </Typography>
+              )}
+              <Button variant="outlined" color="primary" onClick={handleLogout}>
+                Logout
+              </Button>
+            </>
           ) : (
             <>
               <Button
