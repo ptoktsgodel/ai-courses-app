@@ -1,23 +1,23 @@
 import { create } from 'zustand'
 import type { Payment, Item, DayItems } from '../types/items'
 
-interface CalendarState {
+interface ItemPaymentState {
   items: DayItems
 }
 
-interface CalendarActions {
+interface ItemPaymentActions {
   loadItems: (items: Item[]) => void
   setItem: (dateKey: string, item: Item) => void
   addPayment: (dateKey: string, payment: Payment) => void
   removePayments: (dateKey: string, ids: string[]) => void
-  updatePayment: (dateKey: string, updatedItem: Item) => void
+  updatePayment: (dateKey: string, payment: Payment) => void
 }
 
-const initialState: CalendarState = {
+const initialState: ItemPaymentState = {
   items: {},
 }
 
-const useCalendarStore = create<CalendarState & CalendarActions>((set) => ({
+const useItemPaymentStore = create<ItemPaymentState & ItemPaymentActions>((set) => ({
   ...initialState,
 
   loadItems: (items) =>
@@ -61,16 +61,20 @@ const useCalendarStore = create<CalendarState & CalendarActions>((set) => ({
       }
     }),
 
-  updatePayment: (dateKey, updatedItem) =>
-    set((state) => ({
-      items: {
-        ...state.items,
-        [dateKey]: {
-          ...updatedItem,
-          payments: updatedItem.payments ?? state.items[dateKey]?.payments ?? [],
+  updatePayment: (dateKey, payment) =>
+    set((state) => {
+      const existing = state.items[dateKey]
+      if (!existing) return state
+      return {
+        items: {
+          ...state.items,
+          [dateKey]: {
+            ...existing,
+            payments: existing.payments.map((p) => (p.id === payment.id ? payment : p)),
+          },
         },
-      },
-    })),
+      }
+    }),
 }))
 
-export default useCalendarStore
+export default useItemPaymentStore

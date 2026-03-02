@@ -3,7 +3,7 @@ import Box from '@mui/material/Box'
 import CircularProgress from '@mui/material/CircularProgress'
 import Typography from '@mui/material/Typography'
 import dayjs, { Dayjs } from 'dayjs'
-import useCalendarStore from '../../stores/items-payments-store'
+import useItemPaymentStore from '../../stores/items-payments-store'
 import DayPopup from './dashboard-day-popup'
 
 interface CalendarGridProps {
@@ -15,7 +15,7 @@ interface CalendarGridProps {
 const DAY_HEADERS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 export default function CalendarGrid({ date, loading = false, onRefresh }: CalendarGridProps) {
-  const items = useCalendarStore((s) => s.items)
+  const items = useItemPaymentStore((s) => s.items)
   const [openDay, setOpenDay] = useState<string | null>(null)
 
   const startDay = date.startOf('month').day()

@@ -8,13 +8,13 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import dayjs, { Dayjs } from 'dayjs'
 import CalendarGrid from './dashboard-calendar-grid'
-import useCalendarStore from '../../stores/items-payments-store'
+import useItemPaymentStore from '../../stores/items-payments-store'
 import { getItems } from '../../services/items-service'
 
 export default function DashboardComponent() {
   const [date, setDate] = useState<Dayjs>(dayjs())
   const [loading, setLoading] = useState(false)
-  const loadItems = useCalendarStore((s) => s.loadItems)
+  const loadItems = useItemPaymentStore((s) => s.loadItems)
 
   const fetchMonth = useCallback(async (month: Dayjs) => {
     setLoading(true)

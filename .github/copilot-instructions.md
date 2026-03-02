@@ -64,42 +64,78 @@ import { NAVBAR_HEIGHT, SIDEBAR_WIDTH_EXPANDED, SIDEBAR_WIDTH_COLLAPSED } from '
 - Functional components with hooks only; no class components
 
 ### Zustand Stores
-Separate `State` and `Actions` interfaces; use `initialState` constant for easy reset; always use `persist` with `partialize` for auth-related stores:
-```ts
-interface MyState { value: string | null }
-interface MyActions { setValue: (v: string) => void; reset: () => void }
-const initialState: MyState = { value: null }
+Separate `State` and `Actions` interfaces; use `initialState` constant for easy reset.
 
-const useMyStore = create<MyState & MyActions>()(
+Use `persist` with `partialize` **only** for stores that must survive page reload (e.g. auth tokens):
+```ts
+// Persisted store (auth)
+const useAuthStore = create<AuthState & AuthActions>()(
   persist(
-    (set) => ({
-      ...initialState,
-      setValue: (value) => set({ value }),
-      reset: () => set(initialState),
-    }),
-    { name: 'ai-courses-my', partialize: (s) => ({ value: s.value }) }
+    (set) => ({ ...initialState, logout: () => set(initialState) }),
+    { name: 'ai-courses-auth', partialize: (s) => ({ accessToken: s.accessToken, user: s.user, isAuthenticated: s.isAuthenticated }) }
   )
 )
-export default useMyStore
+export default useAuthStore
+```
+
+Use plain `create()` (no `persist`) for transient UI/domain state:
+```ts
+// Non-persisted store (items/payments)
+const useItemPaymentStore = create<ItemPaymentState & ItemPaymentActions>((set) => ({
+  ...initialState,
+  loadItems: (items) => set({ items: Object.fromEntries(items.map((i) => [i.date.slice(0, 10), i])) }),
+}))
+export default useItemPaymentStore
 ```
 
 ### API Services
-Plain `fetch`, shared `handleResponse<T>` generic, typed error class, `BASE_URL` pointing to `/api/v1/<domain>` (proxied by Vite to `http://localhost:8080`):
-```ts
-const BASE_URL = '/api/v1/my-domain'
+Plain `fetch`, shared `handleResponse<T>` generic, typed error class, `BASE_URL` pointing to `/api/v1/<domain>` (proxied by Vite to `http://localhost:8080`).
 
-export class MyApiError extends Error {
+**Auth service** — error class carries `validationErrors` for field-level server errors:
+```ts
+export class AuthApiError extends Error {
   constructor(message: string, public readonly validationErrors: ApiValidationError[] = [], public readonly statusCode = 400) {
     super(message)
-    this.name = 'MyApiError'
+    this.name = 'AuthApiError'
   }
+}
+```
+
+**Domain services** — read the auth token directly from the store; use an `authHeader()` helper:
+```ts
+import useAuthStore from '../stores/auth-store'
+
+export class ItemsApiError extends Error {
+  constructor(message: string, public readonly statusCode = 400) {
+    super(message)
+    this.name = 'ItemsApiError'
+  }
+}
+
+function authHeader(): Record<string, string> {
+  const token = useAuthStore.getState().accessToken
+  return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
 async function handleResponse<T>(res: Response): Promise<T> { /* ... */ }
 
-export async function getItems(): Promise<ItemDto[]> {
-  const res = await fetch(`${BASE_URL}/items`, { headers: { Authorization: `Bearer ${token}` } })
-  return handleResponse<ItemDto[]>(res)
+// For endpoints that return 204 No Content:
+async function handleNoContent(res: Response): Promise<void> {
+  if (res.ok) return
+  throw new ItemsApiError(`Request failed with status ${res.status}`, res.status)
+}
+
+export async function getItems(): Promise<Item[]> {
+  const res = await fetch(BASE_URL, { headers: { ...authHeader() } })
+  return handleResponse<Item[]>(res)
+}
+
+export async function deletePayment(itemId: string, paymentId: string): Promise<void> {
+  const res = await fetch(`${BASE_URL}/${itemId}/payments/${paymentId}`, {
+    method: 'DELETE',
+    headers: { ...authHeader() },
+  })
+  return handleNoContent(res)
 }
 ```
 
@@ -114,9 +150,14 @@ const { register, handleSubmit, setError, formState: { errors, isSubmitting } } 
 
 ### Routing
 - Routes defined in `src/app.tsx` using `<Routes>` / `<Route>`
-- Layout shell (navbar + sidebar + main content) wraps protected routes under `path="/*"`
-- `ProtectedRoute` in `src/routes/protected-route.tsx` uses `<Outlet />` and redirects to `/login` when `isAuthenticated` is false
-- To protect a route, nest it inside `<Route element={<ProtectedRoute />}>`
+- Layout shell (navbar + sidebar + main content) wraps protected routes under `path="/*"`; inner `<Routes>` handles sub-routes (`dashboard`, `graphs`)
+- `ProtectedRoute` in `src/routes/protected-route.tsx` uses `<Outlet />` and redirects to `/login` (preserving `location.state.from`) when `isAuthenticated` is false
+- To protect a route, nest it inside `<Route element={<ProtectedRoute />}>`:
+```tsx
+<Route element={<ProtectedRoute />}>
+  <Route path="dashboard" element={<DashboardPage />} />
+</Route>
+```
 
 ### Date Handling
 Scope `LocalizationProvider` per component (not global in `main.tsx`) unless multiple date pickers share context:
@@ -159,7 +200,12 @@ npm run build
 - [src/main.tsx](src/main.tsx) — entry point, global providers (`BrowserRouter` → `ThemeProvider` → `CssBaseline`)
 - [src/styles/theme.ts](src/styles/theme.ts) — MUI theme (primary `#6366f1`, background `#f8fafc`)
 - [src/pages/login-page.tsx](src/pages/login-page.tsx) — canonical page pattern (form + validation + API call)
-- [src/stores/auth-store.ts](src/stores/auth-store.ts) — canonical Zustand store pattern
-- [src/services/auth-service.ts](src/services/auth-service.ts) — canonical API service pattern
+- [src/pages/register-page.tsx](src/pages/register-page.tsx) — registration page pattern
+- [src/stores/auth-store.ts](src/stores/auth-store.ts) — canonical persisted Zustand store pattern
+- [src/stores/items-payments-store.ts](src/stores/items-payments-store.ts) — canonical non-persisted Zustand store (`useItemPaymentStore`)
+- [src/services/auth-service.ts](src/services/auth-service.ts) — canonical auth API service pattern (with `validationErrors`)
+- [src/services/items-service.ts](src/services/items-service.ts) — canonical authenticated domain service (`authHeader`, `handleNoContent`)
+- [src/types/auth.ts](src/types/auth.ts) — auth types (`User`, `LoginResponse`, `ApiValidationError`)
+- [src/types/items.ts](src/types/items.ts) — domain types (`Item`, `Payment`, `DayItems`) + utility functions
 - [src/components/common/sidebar-nav.tsx](src/components/common/sidebar-nav.tsx) — canonical component pattern
 - [src/routes/protected-route.tsx](src/routes/protected-route.tsx) — auth guard

@@ -10,7 +10,7 @@ import IconButton from '@mui/material/IconButton'
 import Button from '@mui/material/Button'
 import CloseIcon from '@mui/icons-material/Close'
 import dayjs from 'dayjs'
-import useCalendarStore from '../../stores/items-payments-store'
+import useItemPaymentStore from '../../stores/items-payments-store'
 import { addItemPayment, deletePayment, updatePayment, getTypes } from '../../services/items-service'
 import PaymentFormDialog from './dashboard-payment-form'
 import type { Payment } from '../../types/items'
@@ -23,10 +23,10 @@ interface DayPopupProps {
 }
 
 export default function DayPopup({ open, dateKey, onClose, onRefresh }: DayPopupProps) {
-  const dayItem = useCalendarStore((s) => s.items[dateKey])
-  const setItem = useCalendarStore((s) => s.setItem)
-  const storeUpdatePayment = useCalendarStore((s) => s.updatePayment)
-  const removePayments = useCalendarStore((s) => s.removePayments)
+  const dayItem = useItemPaymentStore((s) => s.items[dateKey])
+  const setItem = useItemPaymentStore((s) => s.setItem)
+  const storeUpdatePayment = useItemPaymentStore((s) => s.updatePayment)
+  const removePayments = useItemPaymentStore((s) => s.removePayments)
 
   const payments = dayItem?.payments ?? []
   const [selectedId, setSelectedId] = useState<string | null>(null)

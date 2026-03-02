@@ -1,4 +1,4 @@
-import type { Item } from '../types/items'
+import type { Item, Payment } from '../types/items'
 import useAuthStore from '../stores/auth-store'
 
 const BASE_URL = '/api/v1/items'
@@ -84,11 +84,11 @@ export interface UpdatePaymentPayload {
   spentAmount: number | null
 }
 
-export async function updatePayment(itemId: string, paymentId: string, payload: UpdatePaymentPayload): Promise<Item> {
+export async function updatePayment(itemId: string, paymentId: string, payload: UpdatePaymentPayload): Promise<Payment> {
   const res = await fetch(`${BASE_URL}/${itemId}/payments/${paymentId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...authHeader() },
     body: JSON.stringify(payload),
   })
-  return handleResponse<Item>(res)
+  return handleResponse<Payment>(res)
 }
