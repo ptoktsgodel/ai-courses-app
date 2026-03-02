@@ -14,6 +14,7 @@ import Alert from '@mui/material/Alert'
 import CircularProgress from '@mui/material/CircularProgress'
 import { login } from '../services/auth-service'
 import { AuthApiError } from '../services/auth-service'
+import { getMe } from '../services/users-service'
 import useAuthStore from '../stores/auth-store'
 
 const schema = z.object({
@@ -26,6 +27,7 @@ type FormValues = z.infer<typeof schema>
 export default function LoginPage() {
   const navigate = useNavigate()
   const setTokens = useAuthStore((s) => s.setTokens)
+  const setUser = useAuthStore((s) => s.setUser)
   const [globalError, setGlobalError] = useState<string | null>(null)
 
   const {
@@ -40,6 +42,8 @@ export default function LoginPage() {
     try {
       const response = await login(values.email, values.password)
       setTokens({ accessToken: response.accessToken, refreshToken: response.refreshToken })
+      const user = await getMe()
+      setUser(user)
       navigate('/dashboard', { replace: true })
     } catch (err) {
       if (err instanceof AuthApiError) {

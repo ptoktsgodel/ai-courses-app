@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import AppBar from '@mui/material/AppBar'
 import Toolbar from '@mui/material/Toolbar'
 import Box from '@mui/material/Box'
@@ -7,13 +8,21 @@ import Button from '@mui/material/Button'
 import SchoolIcon from '@mui/icons-material/School'
 import { Link as RouterLink, useNavigate } from 'react-router-dom'
 import useAuthStore from '../../stores/auth-store'
+import { getMe } from '../../services/users-service'
 import { NAVBAR_HEIGHT } from '../../app'
 
 export default function TopNavbar() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const logout = useAuthStore((s) => s.logout)
   const user = useAuthStore((s) => s.user)
+  const setUser = useAuthStore((s) => s.setUser)
   const navigate = useNavigate()
+
+  useEffect(() => {
+    if (isAuthenticated && !user) {
+      getMe().then(setUser).catch(() => {})
+    }
+  }, [isAuthenticated, user, setUser])
 
   const handleLogout = () => {
     logout()
