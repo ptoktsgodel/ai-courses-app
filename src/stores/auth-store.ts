@@ -1,17 +1,17 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { UserDto, LoginResponse } from '../types/auth'
+import type { User, LoginResponse } from '../types/auth'
 
 interface AuthState {
   accessToken: string | null
   refreshToken: string | null
-  user: UserDto | null
+  user: User | null
   isAuthenticated: boolean
 }
 
 interface AuthActions {
   setTokens: (tokens: Pick<LoginResponse, 'accessToken' | 'refreshToken'>) => void
-  setUser: (user: UserDto) => void
+  setUser: (user: User) => void
   logout: () => void
 }
 

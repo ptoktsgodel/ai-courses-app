@@ -1,4 +1,4 @@
-import type { ApiValidationError, LoginResponse, UserDto } from '../types/auth'
+import type { ApiValidationError, LoginResponse, User } from '../types/auth'
 
 const BASE_URL = '/api/v1/auth'
 
@@ -50,11 +50,11 @@ export async function register(
   confirmPassword: string,
   firstName: string,
   lastName: string
-): Promise<UserDto> {
+): Promise<User> {
   const res = await fetch(`${BASE_URL}/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password, confirmPassword, firstName, lastName }),
   })
-  return handleResponse<UserDto>(res)
+  return handleResponse<User>(res)
 }
